@@ -7,23 +7,37 @@
 
 <style>
 body { margin:0; font-family:'Segoe UI',sans-serif; background:#020617; color:white; }
-.container { padding:15px; padding-bottom:80px; }
+.container { padding:15px; padding-bottom:100px; }
 .card { background:#0f172a; border-radius:15px; padding:15px; margin-bottom:15px; }
-button { width:100%; padding:10px; border-radius:10px; border:none; background:#22c55e; color:white; margin-top:5px; }
+button { width:100%; padding:12px; border-radius:12px; border:none; background:#22c55e; color:white; margin-top:6px; font-size:15px; }
 input { width:100%; padding:10px; border-radius:10px; border:none; margin-bottom:10px; }
 .progress { height:10px; background:#1e293b; border-radius:10px; }
 .progress-bar { height:10px; background:#22c55e; border-radius:10px; }
-.navbar { position:fixed; bottom:0; width:100%; display:flex; background:#0f172a; }
-.navbar button { flex:1; background:none; }
+
+.navbar {
+  position:fixed;
+  bottom:0;
+  width:100%;
+  display:flex;
+  background:#0f172a;
+  border-top:1px solid #1e293b;
+}
+
+.navbar button {
+  flex:1;
+  padding:14px 0;
+  font-size:18px;
+}
+
 .hidden { display:none; }
 .badge { font-size:12px; opacity:.7; }
+
 </style>
 </head>
 <body>
 
 <div class="container">
 
-<!-- HOME -->
 <div id="home">
   <div class="card">
     <h3>Level: <span id="level"></span></h3>
@@ -34,7 +48,6 @@ input { width:100%; padding:10px; border-radius:10px; border:none; margin-bottom
   </div>
 </div>
 
-<!-- HABITS -->
 <div id="habits" class="hidden">
   <div class="card">
     <h3>Звички</h3>
@@ -44,21 +57,14 @@ input { width:100%; padding:10px; border-radius:10px; border:none; margin-bottom
   </div>
 </div>
 
-<!-- MISSIONS -->
 <div id="missions" class="hidden">
   <div class="card">
-    <h3>Місії</h3>
-    <p class="badge">Виконуй — отримуй XP та монети</p>
-
-    <button onclick="doMission('Навчання', 30, 20)">📚 Навчання (+30 XP, +20)</button>
-    <button onclick="doMission('Робота', 20, 40)">💼 Робота (+20 XP, +40)</button>
-    <button onclick="doMission('Зал', 40, 15)">🏋️ Зал (+40 XP, +15)</button>
-    <button onclick="doMission('Саморозвиток', 35, 25)">🧠 Саморозвиток (+35 XP, +25)</button>
-    <button onclick="doMission('Відпочинок', 10, 10)">🌴 Відпочинок (+10 XP, +10)</button>
+    <h3>Щоденні місії</h3>
+    <p class="badge">Оновлюються раз на день</p>
+    <div id="dailyList"></div>
   </div>
 </div>
 
-<!-- SHOP -->
 <div id="shop" class="hidden">
   <div class="card">
     <h3>Магазин</h3>
@@ -70,7 +76,6 @@ input { width:100%; padding:10px; border-radius:10px; border:none; margin-bottom
   </div>
 </div>
 
-<!-- INVENTORY -->
 <div id="inventory" class="hidden">
   <div class="card">
     <h3>Інвентар</h3>
@@ -80,7 +85,6 @@ input { width:100%; padding:10px; border-radius:10px; border:none; margin-bottom
 
 </div>
 
-<!-- NAVBAR -->
 <div class="navbar">
   <button onclick="show('home')">🏠</button>
   <button onclick="show('habits')">✅</button>
@@ -91,11 +95,30 @@ input { width:100%; padding:10px; border-radius:10px; border:none; margin-bottom
 
 <script>
 let data = JSON.parse(localStorage.getItem('lifeRPG')) || {
-  xp:0, level:1, coins:0, habits:[], streak:0, lastDay:null, inventory:[]
+  xp:0, level:1, coins:0, habits:[], streak:0, lastDay:null, inventory:[], dailies:[], dailyDate:null
 };
+
+const missionsPool = [
+  {name:'Навчання', xp:30, coins:20},
+  {name:'Робота', xp:20, coins:40},
+  {name:'Зал', xp:40, coins:15},
+  {name:'Читання', xp:25, coins:20},
+  {name:'Саморозвиток', xp:35, coins:25}
+];
 
 function save(){ localStorage.setItem('lifeRPG', JSON.stringify(data)); }
 function today(){ return new Date().toDateString(); }
+
+function generateDailies(){
+  if(data.dailyDate !== today()){
+    data.dailies = [];
+    for(let i=0;i<3;i++){
+      let m = missionsPool[Math.floor(Math.random()*missionsPool.length)];
+      data.dailies.push({...m, done:false});
+    }
+    data.dailyDate = today();
+  }
+}
 
 function addStreak(){
   if(data.lastDay !== today()){
@@ -108,7 +131,7 @@ function render(){
   level.innerText = data.level;
   xp.innerText = data.xp;
   coins.innerText = data.coins;
-  document.getElementById('streak').innerText = data.streak;
+  streak.innerText = data.streak;
   bar.style.width = (data.xp/(data.level*100))*100 + '%';
 
   habitList.innerHTML='';
@@ -120,6 +143,28 @@ function render(){
   data.inventory.forEach(i=>{
     invList.innerHTML += `<li>${i}</li>`;
   });
+
+  const dl = document.getElementById('dailyList');
+  dl.innerHTML='';
+  data.dailies.forEach((m,i)=>{
+    dl.innerHTML += `<button onclick="doDaily(${i})" ${m.done?'disabled':''}>
+      ${m.name} (+${m.xp} XP, +${m.coins}) ${m.done?'✅':''}
+    </button>`;
+  });
+}
+
+function doDaily(i){
+  let m = data.dailies[i];
+  if(m.done) return;
+
+  data.xp += m.xp;
+  data.coins += m.coins;
+  m.done = true;
+  addStreak();
+
+  if(data.xp >= data.level*100){ data.xp=0; data.level++; }
+
+  save(); render();
 }
 
 function addHabit(){
@@ -139,17 +184,6 @@ function done(i){
   save(); render();
 }
 
-function doMission(name,xpReward,coinReward){
-  data.xp += xpReward;
-  data.coins += coinReward;
-  addStreak();
-
-  if(data.xp >= data.level*100){ data.xp=0; data.level++; }
-
-  alert('Виконано: '+name);
-  save(); render();
-}
-
 function buy(name,cost){
   if(data.coins>=cost){
     data.coins-=cost;
@@ -164,6 +198,7 @@ function show(tab){
   document.getElementById(tab).classList.remove('hidden');
 }
 
+generateDailies();
 render();
 </script>
 
